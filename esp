@@ -1,0 +1,301 @@
+//Libraries
+#include <SPI.h>//https://www.arduino.cc/en/reference/SPI
+#include <MFRC522.h>//https://github.com/miguelbalboa/rfid
+
+//Constants
+#define SS_PIN 5
+#define RST_PIN 2
+
+#include <Arduino.h>
+#if defined(ESP32)
+#include <WiFi.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#endif
+#include <Firebase_ESP_Client.h>
+
+//Provide the token generation process info.
+#include "addons/TokenHelper.h"
+//Provide the RTDB payload printing info and other helper functions.
+#include "addons/RTDBHelper.h"
+
+// Insert your network credentials
+//#define WIFI_SSID "Altibox218028"
+//#define WIFI_PASSWORD "ntDkNGjB"
+
+#define WIFI_SSID "Nissanth"
+#define WIFI_PASSWORD "12345678"
+//#define WIFI_SSID "Omni Karunanithy"
+//#define WIFI_PASSWORD "juice2676"
+
+// Insert Firebase project API Key
+#define API_KEY "AIzaSyB2xEC3xlXWnlFNZDy2akIdKfW_Vp6vsLw"
+
+// Insert RTDB URLefine the RTDB URL */
+#define DATABASE_URL "https://nett-e5517-default-rtdb.europe-west1.firebasedatabase.app/"
+
+//Define Firebase Data object
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+
+//Parameters
+const int ipaddress[4] = {103, 97, 67, 25};
+
+int status;
+
+unsigned long sendDataPrevMillis = 0;
+int count = 0;
+bool signupOK = false;
+
+//Variables
+byte nuidPICC[4] = {0, 0, 0, 0};
+MFRC522::MIFARE_Key key;
+MFRC522 rfid = MFRC522(SS_PIN, RST_PIN);
+
+void setup() {
+  //Init Serial USB
+  Serial.begin(115200);
+  Serial.println(F("Initialize System"));
+  //init rfid D8,D5,D6,D7
+  SPI.begin();
+  rfid.PCD_Init();
+
+  Serial.print(F("Reader :"));
+  rfid.PCD_DumpVersionToSerial();
+
+  Serial.begin(115200);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  /* Assign the api key (required) */
+  config.api_key = API_KEY;
+
+  /* Assign the RTDB URL (required) */
+  config.database_url = DATABASE_URL;
+
+  /* Sign up */
+  if (Firebase.signUp(&config, &auth, "", "")) {
+    Serial.println("ok");
+    signupOK = true;
+  }
+  else {
+    Serial.printf("%s\n", config.signer.signupError.message.c_str());
+  }
+
+  /* Assign the callback function for the long running token generation task */
+  config.token_status_callback = tokenStatusCallback; //see addons/TokenHelper.h
+
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+}
+
+void loop() {
+  readRFID();
+}
+
+void toFirebase1(String Name, int count)
+{
+  if (Firebase.ready() && signupOK) {
+    // Write an Int number on the database path test/int
+    if (Firebase.RTDB.setInt(&fbdo, Name, count)) {
+      Serial.println("PASSED");
+      Serial.println("PATH: " + fbdo.dataPath());
+      Serial.println("TYPE: " + fbdo.dataType());
+    }
+    else {
+      Serial.println("FAILED");
+      Serial.println("REASON: " + fbdo.errorReason());
+    }
+  }
+}
+
+void toFirebase2(String str)
+{
+  int str_len = str.length() + 1; 
+  char char_array[str_len];
+  str.toCharArray(char_array, str_len);
+      
+  if (Firebase.ready() && signupOK) {
+    // Write an Int number on the database path test/int
+    if (Firebase.RTDB.setString(&fbdo, F(char_array), F("Available"))) {
+      Serial.println("PASSED");
+      Serial.println("PATH: " + fbdo.dataPath());
+      Serial.println("TYPE: " + fbdo.dataType());
+    }
+    else {
+      Serial.println("FAILED");
+      Serial.println("REASON: " + fbdo.errorReason());
+    }
+  }
+}
+
+void checkFirebaseForID(){
+    
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0))
+  {
+    const char *IDnumber = Firebase.RTDB.getString(&fbdo, F("ID")) ? fbdo.to<const char *>() : fbdo.errorReason().c_str();
+    String mystring(IDnumber); 
+    String newstring; 
+    int words = 1; 
+    for (int i = 0; i < mystring.length(); i++)
+    {
+      newstring += mystring[i];    
+    }
+
+    for (int i = 0; i < newstring.length(); i++)
+    {
+      if (newstring[i] == '{' or newstring[i] == '}' or newstring[i] == '"')
+      {
+        newstring[i] = ' ';
+      }
+
+      if (newstring[i] == ',')
+      {
+        words += 1; 
+      }
+    }
+    
+    newstring.replace(" ", ""); 
+    Serial.println(newstring);
+    
+    String carryID; 
+    String results[words]; 
+    int index = 0; 
+    for(int i = 0; i <= newstring.length(); i++)
+    {
+      if (newstring[i] == ',')
+      {
+        results[index] = carryID;
+        index += 1; 
+        carryID = "";
+      }
+      else if (i == newstring.length())
+      {
+        results[index] = carryID; 
+        carryID =""; 
+        index = 0; 
+      }
+      else 
+      {
+        carryID += newstring[i];      
+      }
+    }
+
+    String ID_ofplayer[words]; 
+    String Names_ofplayer[words]; 
+
+    for (int i = 0; i < words; i++) 
+    {
+      for (int j = 0; j <= results[i].length(); j++)
+      { 
+        if (results[i][j] == ':')
+        {
+          ID_ofplayer[i] = carryID; 
+          carryID = ""; 
+        }
+        else if (j == results[i].length())
+        {
+          Names_ofplayer[i] = carryID; 
+          carryID = ""; 
+        }
+        else 
+        {
+          carryID += results[i][j]; 
+        }
+      }
+    }
+    
+    String nuidPICCtoString; 
+    for (int i = 0; i < 4; i++)
+    {
+      nuidPICCtoString += nuidPICC[i]; 
+    }
+
+    Serial.println(nuidPICCtoString); 
+    //char *playersName = Names_ofplayer[1];
+    //Serial.println(playersName); 
+    
+    int noMatchFoundInt = 0; 
+    for (int i = 0; i < words; i++)
+    {
+      if (nuidPICCtoString == ID_ofplayer[i])
+      {
+        Serial.println("Match found for: ");  
+        toFirebase1("Highscore/" + Names_ofplayer[i], checkFirebaseForPoints("Highscore/" + Names_ofplayer[i]) + 1);
+      }
+      else 
+      {
+        noMatchFoundInt += 1; 
+      }
+    }
+    
+    if (noMatchFoundInt == words)
+    {
+      Serial.println("No match found...");
+      toFirebase2("noID/" + nuidPICCtoString);
+    }
+  }
+}
+
+void readRFID(void ) { /* function readRFID */
+  ////Read RFID card
+
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
+  }
+  // Look for new 1 cards
+  if ( ! rfid.PICC_IsNewCardPresent())
+    return;
+
+  // Verify if the NUID has been readed
+  if (  !rfid.PICC_ReadCardSerial())
+    return;
+
+  // Store NUID into nuidPICC array
+  for (byte i = 0; i < 4; i++) {
+    nuidPICC[i] = rfid.uid.uidByte[i];
+  }
+
+  Serial.print(F("RFID In dec: "));
+  printDec(rfid.uid.uidByte, rfid.uid.size);
+  Serial.println();
+
+  // Halt PICC
+  rfid.PICC_HaltA();
+
+  // Stop encryption on PCD
+  rfid.PCD_StopCrypto1();
+
+}
+
+void printDec(byte *buffer, byte bufferSize) {
+  for (byte i = 0; i < bufferSize; i++) {
+    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial.print(buffer[i], DEC);
+  }
+  
+  checkFirebaseForID();   
+}
+
+int checkFirebaseForPoints(String str) 
+{
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0))
+  {
+      int str_len = str.length() + 1; 
+      char char_array[str_len];
+      str.toCharArray(char_array, str_len);
+ 
+      const char *highscorePlayers = Firebase.RTDB.getString(&fbdo, F(char_array)) ? fbdo.to<const char *>() : fbdo.errorReason().c_str();
+      String mystring(highscorePlayers); 
+      return mystring.toInt(); 
+   }
+}
