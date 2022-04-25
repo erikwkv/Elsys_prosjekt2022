@@ -146,7 +146,7 @@ void runFirebaseProgram(){ //Alt av logikk for å sende data til og fra firebase
       }
     }
     
-    newstring.replace(" ", ""); //fjerner mellomrom
+    newstring.replace(" ", ""); //fjerner mellomrom fra newstring
     
     String carryID; 
     String results[words]; 
