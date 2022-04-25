@@ -265,7 +265,7 @@ void printDec(byte *buffer, byte bufferSize) { //tar inn byte og byte størrelse
   }
 }
 
-int getPlayersPoint(String str) //Returnerer spillers poeng
+int getPlayersPoint(String str) //Henter spillerens poeng
 {
   if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)) //logger inn til database 
   {
