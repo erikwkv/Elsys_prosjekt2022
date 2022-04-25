@@ -1,10 +1,12 @@
+
+   
 //Libraries
 #include <SPI.h>//https://www.arduino.cc/en/reference/SPI
 #include <MFRC522.h>//https://github.com/miguelbalboa/rfid
 
 //Constants
-#define SS_PIN 5
-#define RST_PIN 2
+#define SS_PIN 5 //SS pin som er koblet til ESP32
+#define RST_PIN 2 //Reset pin som er koblet til ESP32
 
 #include <Arduino.h>
 #if defined(ESP32)
@@ -14,202 +16,178 @@
 #endif
 #include <Firebase_ESP_Client.h>
 
-//Provide the token generation process info.
-#include "addons/TokenHelper.h"
-//Provide the RTDB payload printing info and other helper functions.
-#include "addons/RTDBHelper.h"
+#include "addons/TokenHelper.h" // Provide the token generation process info.
+#include "addons/RTDBHelper.h" // Provide the RTDB payload printing info and other helper functions.
 
 // Insert your network credentials
-//#define WIFI_SSID "Altibox218028"
-//#define WIFI_PASSWORD "ntDkNGjB"
-
-#define WIFI_SSID "Nissanth"
-#define WIFI_PASSWORD "12345678"
-//#define WIFI_SSID "Omni Karunanithy"
-//#define WIFI_PASSWORD "juice2676"
+#define WIFI_SSID "WIFI_SSID" //WIFI Navn
+#define WIFI_PASSWORD "WIFI_PASSWORD" //WIFI passord 
 
 // Insert Firebase project API Key
-#define API_KEY "AIzaSyB2xEC3xlXWnlFNZDy2akIdKfW_Vp6vsLw"
+#define API_KEY "API_KEY" //Nøkkelen til Firebase databasen 
 
 // Insert RTDB URLefine the RTDB URL */
-#define DATABASE_URL "https://nett-e5517-default-rtdb.europe-west1.firebasedatabase.app/"
+#define DATABASE_URL "DATABASE_URL" //Nettadressen til firebase databasen  
 
 //Define Firebase Data object
-FirebaseData fbdo;
+FirebaseData fbdo; 
 FirebaseAuth auth;
 FirebaseConfig config;
 
 //Parameters
-const int ipaddress[4] = {103, 97, 67, 25};
+const int ipaddress[4] = {103, 97, 67, 25}; //IP-adressen til ESP32
 
-int status;
+int status; //WIFI tilkoblings status 
 
-unsigned long sendDataPrevMillis = 0;
+unsigned long sendDataPrevMillis = 0; 
 int count = 0;
 bool signupOK = false;
 
 //Variables
-byte nuidPICC[4] = {0, 0, 0, 0};
+byte nuidPICC[4] = {0, 0, 0, 0}; //IDen til skannet RFID
 MFRC522::MIFARE_Key key;
 MFRC522 rfid = MFRC522(SS_PIN, RST_PIN);
 
 void setup() {
   //Init Serial USB
-  Serial.begin(115200);
-  Serial.println(F("Initialize System"));
-  //init rfid D8,D5,D6,D7
-  SPI.begin();
-  rfid.PCD_Init();
+  Serial.begin(115200); 
+  Serial.println(F("Initialize System")); //Starter opp systemet
+  SPI.begin(); //Starter kommunikasjon mellom ESP32 og RFID
+  rfid.PCD_Init(); //starter RFID
 
-  Serial.print(F("Reader :"));
-  rfid.PCD_DumpVersionToSerial();
+  Serial.print(F("Reader :")); //skriver til skjerm 
+  rfid.PCD_DumpVersionToSerial(); //Reseter RFID
 
-  Serial.begin(115200);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(300);
-  }
-  Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD); //Kobler til Wifi nettverk med navn og passord 
+ 
+  config.api_key = API_KEY; //Config tar inn API key
 
-  /* Assign the api key (required) */
-  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL; //Config tar inn database URL
 
-  /* Assign the RTDB URL (required) */
-  config.database_url = DATABASE_URL;
-
-  /* Sign up */
-  if (Firebase.signUp(&config, &auth, "", "")) {
-    Serial.println("ok");
-    signupOK = true;
+  if (Firebase.signUp(&config, &auth, "", "")) { //Logger inn til database
+    Serial.println("ok"); //skriver til skjerm
+    signupOK = true; //Variabel endres til true
   }
   else {
-    Serial.printf("%s\n", config.signer.signupError.message.c_str());
+    Serial.printf("%s\n", config.signer.signupError.message.c_str()); //Skriver error til skjerm 
   }
 
-  /* Assign the callback function for the long running token generation task */
-  config.token_status_callback = tokenStatusCallback; //see addons/TokenHelper.h
+  config.token_status_callback = tokenStatusCallback; //Config tar inn tokenStatusCallback
 
-  Firebase.begin(&config, &auth);
-  Firebase.reconnectWiFi(true);
+  Firebase.begin(&config, &auth); //Kobler seg til databasen 
+  Firebase.reconnectWiFi(true);  //kobler firebase til WIFI
 }
 
 void loop() {
-  readRFID();
+  readRFID(); //Kjører readRFID i loop 
 }
 
-void toFirebase1(String Name, int count)
+void addPointsToPlayer(String Name, int count) //Funksjonen tar inn name og count
 {
-  if (Firebase.ready() && signupOK) {
-    // Write an Int number on the database path test/int
-    if (Firebase.RTDB.setInt(&fbdo, Name, count)) {
-      Serial.println("PASSED");
-      Serial.println("PATH: " + fbdo.dataPath());
-      Serial.println("TYPE: " + fbdo.dataType());
+  if (Firebase.ready() && signupOK) { //Logger inn til databasen
+´    if (Firebase.RTDB.setInt(&fbdo, Name, count)) { //Setter int variabel til gitt name i databsen 
+      Serial.println("PASSED"); //Skriver til skjerm
+      Serial.println("PATH: " + fbdo.dataPath()); //Skriver path til skjerm
+      Serial.println("TYPE: " + fbdo.dataType()); //skriver datatype til skjerm
     }
     else {
-      Serial.println("FAILED");
-      Serial.println("REASON: " + fbdo.errorReason());
+      Serial.println("FAILED"); //skriver til skjerm
+      Serial.println("REASON: " + fbdo.errorReason()); //skriver error til skjerm
     }
   }
 }
 
-void toFirebase2(String str)
+void addNewID(String str) //tar inn string variabel 
 {
-  int str_len = str.length() + 1; 
-  char char_array[str_len];
-  str.toCharArray(char_array, str_len);
+  int str_len = str.length() + 1;  //lengde av string 
+  char char_array[str_len]; //lager char array
+  str.toCharArray(char_array, str_len); //konverterer string til char array
       
-  if (Firebase.ready() && signupOK) {
+  if (Firebase.ready() && signupOK) { //logger inn til database
     // Write an Int number on the database path test/int
-    if (Firebase.RTDB.setString(&fbdo, F(char_array), F("Available"))) {
-      Serial.println("PASSED");
-      Serial.println("PATH: " + fbdo.dataPath());
-      Serial.println("TYPE: " + fbdo.dataType());
+    if (Firebase.RTDB.setString(&fbdo, F(char_array), F("Available"))) { //Pusher char array til databasen 
+      Serial.println("PASSED"); //skriver til skjerm
+      Serial.println("PATH: " + fbdo.dataPath()); //skriver path til skjerm
+      Serial.println("TYPE: " + fbdo.dataType()); //skriver datatype til skjerm
     }
     else {
-      Serial.println("FAILED");
-      Serial.println("REASON: " + fbdo.errorReason());
+      Serial.println("FAILED"); //skriver til skjerm 
+      Serial.println("REASON: " + fbdo.errorReason()); //skriver error til skjerm 
     }
   }
 }
 
-void checkFirebaseForID(){
+void runFirebaseProgram(){ //Alt av logikk for å sende data til og fra firebase 
     
-  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0))
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)) //Logger inn til firebase 
   {
-    const char *IDnumber = Firebase.RTDB.getString(&fbdo, F("ID")) ? fbdo.to<const char *>() : fbdo.errorReason().c_str();
-    String mystring(IDnumber); 
+    const char *IDnumber = Firebase.RTDB.getString(&fbdo, F("Players ID")) ? fbdo.to<const char *>() : fbdo.errorReason().c_str(); //Henter string fra firebase
+    String mystring(IDnumber); //Konverterer Char peker til string
     String newstring; 
     int words = 1; 
-    for (int i = 0; i < mystring.length(); i++)
+    for (int i = 0; i < mystring.length(); i++) //Overfører string mellom variabel
     {
-      newstring += mystring[i];    
+      newstring += mystring[i]; //newstring blir mystring
     }
 
-    for (int i = 0; i < newstring.length(); i++)
+    for (int i = 0; i < newstring.length(); i++) //loop
     {
-      if (newstring[i] == '{' or newstring[i] == '}' or newstring[i] == '"')
+      if (newstring[i] == '{' or newstring[i] == '}' or newstring[i] == '"') //Fjerner symboler fra newstring
       {
         newstring[i] = ' ';
       }
 
       if (newstring[i] == ',')
       {
-        words += 1; 
+        words += 1; //Teller 
       }
     }
     
-    newstring.replace(" ", ""); 
-    Serial.println(newstring);
+    newstring.replace(" ", ""); //fjerner mellomrom
     
     String carryID; 
     String results[words]; 
     int index = 0; 
-    for(int i = 0; i <= newstring.length(); i++)
+    for(int i = 0; i <= newstring.length(); i++) //loop
     {
       if (newstring[i] == ',')
       {
-        results[index] = carryID;
-        index += 1; 
-        carryID = "";
+        results[index] = carryID; //String array tar inn carryID
+        index += 1; //teller
+        carryID = ""; //reseter carryID
       }
       else if (i == newstring.length())
       {
-        results[index] = carryID; 
-        carryID =""; 
-        index = 0; 
+        results[index] = carryID; //String array tar inn carryID
+        carryID =""; //reseter carryID
+        index = 0; //teller
       }
       else 
       {
-        carryID += newstring[i];      
+        carryID += newstring[i]; //carryID tar inn elementer fra newstring
       }
     }
 
     String ID_ofplayer[words]; 
     String Names_ofplayer[words]; 
 
-    for (int i = 0; i < words; i++) 
+    for (int i = 0; i < words; i++) //loop separerer navn og ID i egne string variabler 
     {
-      for (int j = 0; j <= results[i].length(); j++)
+      for (int j = 0; j <= results[i].length(); j++) //loop 
       { 
         if (results[i][j] == ':')
         {
-          ID_ofplayer[i] = carryID; 
-          carryID = ""; 
+          ID_ofplayer[i] = carryID; //Setter ID_ofplayer med carryID
+          carryID = ""; //reseter carryID
         }
         else if (j == results[i].length())
         {
-          Names_ofplayer[i] = carryID; 
-          carryID = ""; 
+          Names_ofplayer[i] = carryID; //setter Name_ofplayer med carryID
+          carryID = ""; //reseter carryID
         }
         else 
         {
-          carryID += results[i][j]; 
+          carryID += results[i][j]; //Setter carryID med elementer fra results
         }
       }
     }
@@ -217,31 +195,28 @@ void checkFirebaseForID(){
     String nuidPICCtoString; 
     for (int i = 0; i < 4; i++)
     {
-      nuidPICCtoString += nuidPICC[i]; 
+      nuidPICCtoString += nuidPICC[i]; //Konverterer byte til string 
     }
 
-    Serial.println(nuidPICCtoString); 
-    //char *playersName = Names_ofplayer[1];
-    //Serial.println(playersName); 
     
     int noMatchFoundInt = 0; 
-    for (int i = 0; i < words; i++)
+    for (int i = 0; i < words; i++) //loop
     {
       if (nuidPICCtoString == ID_ofplayer[i])
       {
-        Serial.println("Match found for: ");  
-        toFirebase1("Highscore/" + Names_ofplayer[i], checkFirebaseForPoints("Highscore/" + Names_ofplayer[i]) + 1);
+        Serial.println("Match found for: ");  //Skriver til skjerm 
+        addPointsToPlayer("Players/" + Names_ofplayer[i], getPlayersPoint("Players/" + Names_ofplayer[i]) + 1); //Pusher int til database 
       }
       else 
       {
-        noMatchFoundInt += 1; 
+        noMatchFoundInt += 1; //variabel
       }
     }
     
     if (noMatchFoundInt == words)
     {
-      Serial.println("No match found...");
-      toFirebase2("noID/" + nuidPICCtoString);
+      Serial.println("No match found..."); //skriver til skjerm 
+      addNewID("New ID/" + nuidPICCtoString); //Pusher string til database 
     }
   }
 }
@@ -265,37 +240,38 @@ void readRFID(void ) { /* function readRFID */
     nuidPICC[i] = rfid.uid.uidByte[i];
   }
 
-  Serial.print(F("RFID In dec: "));
-  printDec(rfid.uid.uidByte, rfid.uid.size);
-  Serial.println();
-
+  Serial.print(F("RFID In dec: ")); //skriver RFID til skjerm 
+  printDec(rfid.uid.uidByte, rfid.uid.size); //Skriver RFIDs ID til skjerm
+  Serial.println(); 
+  
+  runFirebaseProgram();  //kjører funksjon
+  
   // Halt PICC
   rfid.PICC_HaltA();
 
   // Stop encryption on PCD
   rfid.PCD_StopCrypto1();
-
-}
-
-void printDec(byte *buffer, byte bufferSize) {
-  for (byte i = 0; i < bufferSize; i++) {
-    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
-    Serial.print(buffer[i], DEC);
-  }
-  
-  checkFirebaseForID();   
-}
-
-int checkFirebaseForPoints(String str) 
-{
-  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0))
-  {
-      int str_len = str.length() + 1; 
-      char char_array[str_len];
-      str.toCharArray(char_array, str_len);
  
-      const char *highscorePlayers = Firebase.RTDB.getString(&fbdo, F(char_array)) ? fbdo.to<const char *>() : fbdo.errorReason().c_str();
-      String mystring(highscorePlayers); 
-      return mystring.toInt(); 
+
+}
+
+void printDec(byte *buffer, byte bufferSize) { //tar inn byte og byte størrelse
+  for (byte i = 0; i < bufferSize; i++) {
+    Serial.print(buffer[i] < 0x10 ? " 0" : " "); 
+    Serial.print(buffer[i], DEC); //skriver hver buffer element til skjerm 
+  }
+}
+
+int getPlayersPoint(String str) //henter spillers poeng
+{
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)) //logger inn til database 
+  {
+      int str_len = str.length() + 1; //string lengde
+      char char_array[str_len]; //char array 
+      str.toCharArray(char_array, str_len); //konverterer string til char array 
+ 
+      const char *highscorePlayers = Firebase.RTDB.getString(&fbdo, F(char_array)) ? fbdo.to<const char *>() : fbdo.errorReason().c_str(); //henter string fra firebase 
+      String mystring(highscorePlayers); //konverterer char peker til string
+      return mystring.toInt(); //konverterer mystring til int og returnerer 
    }
 }
