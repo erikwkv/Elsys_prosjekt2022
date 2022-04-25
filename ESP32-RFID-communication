@@ -57,6 +57,11 @@ void setup() {
   rfid.PCD_DumpVersionToSerial(); //Reseter RFID
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD); //Kobler til Wifi nettverk med navn og passord 
+  Serial.print("Connecting to Wi-Fi"); //Skrives til skjerm. 
+  while (WiFi.status() != WL_CONNECTED) { //Løkken sørger for at ESP32 kobler seg til WIFI før resten av koden kjøres.
+    Serial.print(".");
+    delay(300);
+  }
  
   config.api_key = API_KEY; //Config tar inn API key
 
