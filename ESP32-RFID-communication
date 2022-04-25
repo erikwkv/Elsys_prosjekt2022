@@ -124,8 +124,8 @@ void runFirebaseProgram(){ //Alt av logikk for å sende data til og fra firebase
     
   if (Firebase.ready() && (millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0)) //Logger inn til firebase 
   {
-    const char *IDnumber = Firebase.RTDB.getString(&fbdo, F("Players ID")) ? fbdo.to<const char *>() : fbdo.errorReason().c_str(); //Henter string fra firebase
-    String mystring(IDnumber); //Konverterer Char peker til string
+    const char *IDnumber = Firebase.RTDB.getString(&fbdo, F("Players ID")) ? fbdo.to<const char *>() : fbdo.errorReason().c_str(); //Henter string fra firebase og lagrer det i en char peker. 
+    String mystring(IDnumber); //Konverterer char pekeren til string. 
     String newstring; 
     int words = 1; 
     for (int i = 0; i < mystring.length(); i++) //Overfører string mellom variabel
