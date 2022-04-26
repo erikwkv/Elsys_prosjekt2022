@@ -65,25 +65,16 @@ void setAll(byte red, byte green, byte blue) {
 }
 
 void RGBLoop(){
-    int n = {};
-    int p = {};
-    int s = {};
   for(int j = 0; j < 2; j++ ) { 
     // Fade IN
-    n = random(0,210);
-    p = random(0,210);
-    s = random(0,210);
     for(int k = 0; k < 120; k++) { 
       switch(j) { 
         case 0: setAllPixels(0,0,k);
         Check_for_boat(0,0,k);
-        //Glimmer(n, p, s, k);
           break;
         case 1: setAllPixels(0,k/2,k);
         Check_for_boat(0,k/2,k);
-        //Glimmer(n, p, s, k); 
           break;
-        //case 2: setAll(0,0,k); break;
       }
       showStrip();
       delay(3);
@@ -93,13 +84,10 @@ void RGBLoop(){
       switch(j) { 
         case 0: setAllPixels(0,0,k);
         Check_for_boat(0,0,k);
-        //Glimmer(n, p, s, k);
           break;
         case 1: setAllPixels(0,k/2,k);
         Check_for_boat(0,k/2,k);
-        //Glimmer(n, p, s, k);
           break;
-        //case 2: setAll(0,0,k); break;
       }
       showStrip();
       delay(3);
@@ -107,7 +95,7 @@ void RGBLoop(){
   }
 }
 
-
+// Funksjon som deler inn området båten kan kjøre på i 8 3x3 bokser.
 void Check_for_boat(int r,int g,int b){
   int Box_1[9] = {206, 205, 204, 173, 172, 171, 164, 163, 162};
   int Box_2[9] = {199, 201, 200, 177, 176, 178, 157, 159, 158};
@@ -116,9 +104,11 @@ void Check_for_boat(int r,int g,int b){
   int Box_5[9] = {131, 130, 129, 122, 121, 120, 89, 88, 87};
   int Box_6[9] = {135, 134, 136, 115, 117, 116, 93, 92, 94};
   int Box_7[9] = {139, 140, 141, 110, 111, 112, 97, 98, 99};
-  //int Box_8[9] = {143, 142, 141, 110, 109, 108, 101, 100, 99};
+  //int Box_8[9] = {143, 142, 141, 110, 109, 108, 101, 100, 99}; //Magnetsensor 8 er ødelagt. Denne biten er dermed kommentert ut.
   //setPixel(4, 120, 0, 0);
-  if(digitalRead(mag_1) == LOW){
+  
+  // Sjekker om det er et magnetfelt i nærheten av boksene, hvis LOW, dvs magnetfelt detektert, setter den boksen til rød, hvis HIGH endrer den ikke farge
+  if(digitalRead(mag_1) == LOW){ 
     for(int i=0; i<9; i++){
       setPixel(Box_1[i], 120, 0, 0);
       }
@@ -219,6 +209,7 @@ void Check_for_boat(int r,int g,int b){
     }*/
   }
 
+  // Funksjon som styrer alle LEDsene som ikke skal bli påvirket av båten
   void setAllPixels(int r, int g, int b){
     int AllLeft[147] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,
     42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,
